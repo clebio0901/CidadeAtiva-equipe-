@@ -4,7 +4,7 @@ import { priorities, type Activity } from './data'
 const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim()
 export const hasGoogleMaps = Boolean(key)
 const authenticationError = 'cidade-ativa-google-maps-auth-error'
-const colors = ['#d95d17', '#c38c00', '#278051']
+const colors = ['#bc3441', '#d95d17', '#c38c00', '#278051', '#66776f']
 
 declare global {
   interface Window {
@@ -121,7 +121,7 @@ export default function GoogleMap({ activities, category, center, zoom, layer, o
     const points = new google.maps.Data({ map })
     const popup = new google.maps.InfoWindow()
     for (const activity of activities) {
-      if (category && activity.category !== category) continue
+      if (!activity.coordinates || (category && activity.category !== category)) continue
       const [lat, lng] = activity.coordinates
       points.add({
         geometry: new google.maps.Data.Point({ lat, lng }),

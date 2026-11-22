@@ -38,3 +38,11 @@ Defina `VITE_GOOGLE_MAPS_API_KEY` em `.env.local` para compilar na máquina, ou 
 Sem a chave, o mapa usa Esri e OpenStreetMap. Ambos os modos permitem zoom via rolagem do mouse sobre o mapa, gestos de toque e os botões de zoom.
 
 [Configuração da Maps JavaScript API](https://developers.google.com/maps/documentation/javascript/get-api-key)
+
+## Demandas compartilhadas com o Administrador
+
+Configure `VITE_CIDADE_ATIVA_API_URL` com a origem HTTPS do mesmo backend do Administrador, sem `/api` no final. Para uma publicação manual no Netlify, configure a variável no `.env.local` antes de executar `npm run build`. Sem essa variável, o frontend inicia no modo de demonstração.
+
+Na hospedagem do backend, acrescente o domínio da Equipe em `CORS_ALLOWED_ORIGINS`, preservando os domínios já autorizados. A integração usa o login existente e as permissões de Gestor ou Administrador. O escopo atual inclui as demandas visíveis a essas contas. A API atual não associa um usuário de campo a uma equipe com permissão delimitada.
+
+O frontend consulta `GET /api/ocorrencias` ao entrar, a cada 20 segundos enquanto a janela está visível e pelo botão Atualizar. Para salvar status, o backend precisa ter `PATCH /api/ocorrencias/{id}/status` aplicado e publicado. Essa rota atualiza somente o status, usa o banco existente e detecta mudanças concorrentes de status.

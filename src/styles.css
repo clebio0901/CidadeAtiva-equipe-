@@ -126,9 +126,11 @@ select { min-height: 44px; padding: 8px 12px; border: 1px solid #bfcfc4; border-
 .map-frame { position: relative; min-height: 0; }
 .map { height: clamp(320px, 61dvh, 650px); background: #d8e2d5; z-index: 0; }
 .map-layer { position: absolute; top: 12px; left: 12px; z-index: 1; box-shadow: 0 2px 8px #192d2633; }
-.map-pin-0 { --pin-color: #d95d17; }
-.map-pin-1 { --pin-color: #c38c00; }
-.map-pin-2 { --pin-color: #278051; }
+.map-pin-0 { --pin-color: #bc3441; }
+.map-pin-1 { --pin-color: #d95d17; }
+.map-pin-2 { --pin-color: #c38c00; }
+.map-pin-3 { --pin-color: #278051; }
+.map-pin-4 { --pin-color: #66776f; }
 .map-pin span {
   position: relative; display: block; width: 28px; height: 28px; margin-top: 3px;
   background: var(--pin-color); border: 2px solid #fff; border-radius: 50% 50% 50% 0;
@@ -186,4 +188,13 @@ select { min-height: 44px; padding: 8px 12px; border: 1px solid #bfcfc4; border-
 .dashboard-priorities .row-arrow { grid-row: 1 / span 2; grid-column: 3; }
 @media (max-width: 1040px) {
   .dashboard-map-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
+
+.account-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.account-controls button { min-height: 36px; }
+.sync-notice { padding: 12px 16px; }
+.login-panel { max-width: 440px; margin: 48px auto; }
+.login-panel input { min-height: 44px; padding: 8px; border: 1px solid #bfcfc4; border-radius: 8px; font: inherit; }
+@media (max-width: 680px) {
+  .topbar.topbar-live { position: static; padding: 8px 13px; }
 }

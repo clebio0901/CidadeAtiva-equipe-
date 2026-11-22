@@ -17,7 +17,7 @@ const layers = {
   },
 } as const
 
-export default function OccurrenceMap({ activities, compact = false }: { activities: Activity[]; compact?: boolean }) {
+export default function OccurrenceMap({ activities, compact = false, live = false }: { activities: Activity[]; compact?: boolean; live?: boolean }) {
   const initialZoom = compact ? 14 : 15
   const Heading = compact ? 'h2' : 'h1'
   const container = useRef<HTMLDivElement>(null)
@@ -30,7 +30,11 @@ export default function OccurrenceMap({ activities, compact = false }: { activit
   const [category, setCategory] = useState('')
   const [expanded, setExpanded] = useState(false)
   const [failedLayer, setFailedLayer] = useState<keyof typeof layers | null>(null)
-  const count = activities.filter(item => !category || item.category === category).length
+  const availableCategories = live
+    ? [...new Set(activities.map(item => item.category))].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+    : Object.keys(categories)
+  const selectedCategory = availableCategories.includes(category) ? category : ''
+  const count = activities.filter(item => item.coordinates && (!selectedCategory || item.category === selectedCategory)).length
 
   useEffect(() => {
     const element = container.current
@@ -69,7 +73,7 @@ export default function OccurrenceMap({ activities, compact = false }: { activit
     if (!instance) return
     const markers = L.layerGroup().addTo(instance)
     for (const activity of activities) {
-      if (category && activity.category !== category) continue
+      if (!activity.coordinates || (selectedCategory && activity.category !== selectedCategory)) continue
       const popup = document.createElement('a')
       popup.href = '#/ocorrencia/' + activity.id
       popup.textContent = activity.title + ' · Ver detalhes'
@@ -86,7 +90,7 @@ export default function OccurrenceMap({ activities, compact = false }: { activit
       }).bindPopup(popup).addTo(markers)
     }
     return () => { markers.remove() }
-  }, [activities, category, useGoogle])
+  }, [activities, selectedCategory, useGoogle])
 
   useEffect(() => {
     if (!expanded) return
@@ -101,12 +105,12 @@ export default function OccurrenceMap({ activities, compact = false }: { activit
     <div className="map-toolbar">
       <div>
         <Heading className="map-title" id="map-title">Mapa de ocorrências · Sumé-PB</Heading>
-        <p aria-live="polite">{count} {count === 1 ? 'ponto fictício' : 'pontos fictícios'}</p>
+        <p aria-live="polite">{count} {count === 1 ? 'ponto' : 'pontos'}{live ? '' : count === 1 ? ' fictício' : ' fictícios'}</p>
       </div>
       <div className="map-actions">
-        <select aria-label="Filtrar por categoria" value={category} onChange={event => setCategory(event.target.value)}>
+        <select aria-label="Filtrar por categoria" value={selectedCategory} onChange={event => setCategory(event.target.value)}>
           <option value="">Todas as categorias</option>
-          {Object.keys(categories).map(name => <option key={name}>{name}</option>)}
+          {availableCategories.map(name => <option key={name}>{name}</option>)}
         </select>
         <button type="button" title="Centralizar em Sumé" aria-label="Centralizar em Sumé"
           onClick={() => useGoogle ? resetGoogle.current?.() : map.current?.setView(center, initialZoom)}><LocateFixed size={19} /></button>
@@ -119,7 +123,7 @@ export default function OccurrenceMap({ activities, compact = false }: { activit
     </div>
     <div className="map-frame">
       {useGoogle
-        ? <GoogleMap activities={activities} category={category} center={center} zoom={initialZoom}
+        ? <GoogleMap activities={activities} category={selectedCategory} center={center} zoom={initialZoom}
           layer={layer} reset={resetGoogle} onUnavailable={fallBack} />
         : <div className="map" ref={container} aria-label="Mapa interativo de Sumé-PB" />}
       <select className="map-layer" aria-label="Visualização do mapa" value={layer} onChange={event => {

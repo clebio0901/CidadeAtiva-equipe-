@@ -1,7 +1,7 @@
 import { Construction, Droplets, Lightbulb, Trash2, Trees } from 'lucide-react'
 
-export const priorities = ['Alta', 'Média', 'Baixa'] as const
-export const statuses = ['Pendente', 'Em andamento', 'Concluída'] as const
+export const priorities = ['Urgente', 'Alta', 'Média', 'Baixa', 'Sem prioridade'] as const
+export const statuses = ['Pendente', 'Em análise', 'Validada', 'Encaminhada', 'Em andamento', 'Concluída', 'Cancelada', 'Status não reconhecido'] as const
 export type Status = typeof statuses[number]
 
 export const categories = {
@@ -15,11 +15,13 @@ export const categories = {
 export interface Activity {
   id: string
   title: string
-  category: keyof typeof categories
+  category: string
+  apiId?: number
+  apiStatus?: string
   priority: typeof priorities[number]
   status: Status
   location: string
-  coordinates: [number, number]
+  coordinates: [number, number] | null
   description: string
 }
 

@@ -1,11 +1,14 @@
-import { StrictMode, Suspense, lazy, useEffect, useState } from 'react'
+import { StrictMode, Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, CheckCircle2, ChevronRight, ClipboardList, Clock3, LayoutDashboard, MapPin, Map as MapIcon, Radio, TriangleAlert } from 'lucide-react'
 import { activities, categories, priorities, statuses, type Activity, type Status } from './data'
+import { onlineMode, operationalStatuses, signIn } from './api'
+import { useSharedOccurrences } from './useSharedOccurrences'
 import './styles.css'
 
 const OccurrenceMap = lazy(() => import('./OccurrenceMap'))
 const storageKey = 'cidade-ativa-equipe/status/v1'
+const demoStatuses: Status[] = ['Pendente', 'Em andamento', 'Concluída']
 const navigation = [
   { path: '/', title: 'Visão geral', icon: LayoutDashboard },
   { path: '/atividades', title: 'Atividades', icon: ClipboardList },
@@ -26,14 +29,14 @@ function loadStatuses(): Record<string, Status> {
 }
 
 function Badge({ label }: { label: string }) {
-  const variant = ['Alta', 'Pendente'].includes(label) ? 'warm' :
+  const variant = ['Urgente', 'Alta', 'Pendente'].includes(label) ? 'warm' :
     ['Em andamento', 'Média'].includes(label) ? 'gold' : 'green'
   return <span className={'badge ' + variant}><i />{label}</span>
 }
 
 function ActivityList({ items }: { items: Activity[] }) {
   return items.length ? <ul className="activity-list">{items.map(item => {
-    const Icon = categories[item.category]
+    const Icon = categories[item.category as keyof typeof categories] ?? ClipboardList
     return <li key={item.id}>
       <a className="activity" href={'#/ocorrencia/' + item.id}>
         <span className="activity-icon"><Icon size={21} /></span>
@@ -50,8 +53,8 @@ function ActivityList({ items }: { items: Activity[] }) {
 
 function Dashboard({ items }: { items: Activity[] }) {
   const metrics = [
-    { label: 'Prioridade alta', value: items.filter(item => item.priority === 'Alta' && item.status !== 'Concluída').length, icon: TriangleAlert, color: 'warm' },
-    { label: 'Pendentes', value: items.filter(item => item.status === 'Pendente').length, icon: ClipboardList, color: 'neutral' },
+    { label: 'Prioridade alta', value: items.filter(item => ['Urgente', 'Alta'].includes(item.priority) && !['Concluída', 'Cancelada'].includes(item.status)).length, icon: TriangleAlert, color: 'warm' },
+    { label: 'Pendentes', value: items.filter(item => ['Pendente', 'Em análise', 'Validada', 'Encaminhada'].includes(item.status)).length, icon: ClipboardList, color: 'neutral' },
     { label: 'Em andamento', value: items.filter(item => item.status === 'Em andamento').length, icon: Clock3, color: 'gold' },
     { label: 'Concluídas', value: items.filter(item => item.status === 'Concluída').length, icon: CheckCircle2, color: 'green' },
   ]
@@ -73,14 +76,14 @@ function Dashboard({ items }: { items: Activity[] }) {
     </section>
     <div className="dashboard-map-grid">
       <Suspense fallback={<p className="panel map-loading" role="status">Carregando mapa…</p>}>
-        <OccurrenceMap activities={items} compact />
+        <OccurrenceMap activities={items} compact live={onlineMode} />
       </Suspense>
       <section className="panel dashboard-priorities">
         <div className="panel-header">
           <div><h2>Prioridades em campo</h2><p>Ocorrências abertas por ordem de prioridade</p></div>
           <a className="text-link" href="#/atividades">Ver todas <ArrowUpRight size={17} /></a>
         </div>
-        <ActivityList items={items.filter(item => item.status !== 'Concluída').slice(0, 4)} />
+        <ActivityList items={items.filter(item => !['Concluída', 'Cancelada'].includes(item.status)).slice(0, 4)} />
       </section>
     </div>
   </>
@@ -99,7 +102,7 @@ function Activities({ items }: { items: Activity[] }) {
           {['Todas', ...priorities].map(option => <option key={option}>{option}</option>)}
         </select></label>
         <label>Status<select value={status} onChange={event => setStatus(event.target.value)}>
-          {['Todos', ...statuses].map(option => <option key={option}>{option}</option>)}
+          {['Todos', ...(onlineMode ? statuses : demoStatuses)].map(option => <option key={option}>{option}</option>)}
         </select></label>
         <span className="result-count"><ArrowDown size={14} /> {filtered.length} de {items.length} ocorrências</span>
       </div>
@@ -108,10 +111,14 @@ function Activities({ items }: { items: Activity[] }) {
   </>
 }
 
-function Details({ item, onChange }: { item: Activity; onChange: (id: string, status: Status) => boolean }) {
+function Details({ item, onChange }: { item: Activity; onChange: (item: Activity, status: Status) => Promise<string> }) {
   const [feedback, setFeedback] = useState('')
-  const [status, setStatus] = useState(item.status)
-  const Icon = categories[item.category]
+  const [draft, setDraft] = useState<{ status: Status; base: Status } | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const status = draft?.base === item.status ? draft.status : item.status
+  const options = onlineMode ? [...new Set([item.status, ...operationalStatuses])] : demoStatuses
+  const editable = !onlineMode || !['Concluída', 'Cancelada', 'Status não reconhecido'].includes(item.status)
+  const Icon = categories[item.category as keyof typeof categories] ?? ClipboardList
   return <>
     <a className="text-link back" href="#/atividades"><ArrowLeft size={18} /> Atividades</a>
     <header className="page-header"><p className="eyebrow">{item.id}</p><h1>{item.title}</h1><p>{item.location}</p></header>
@@ -122,33 +129,78 @@ function Details({ item, onChange }: { item: Activity; onChange: (id: string, st
         <div className="detail-badges"><Badge label={item.priority} /><Badge label={item.status} /></div>
         <h3>{item.category}</h3>
         <p>{item.description}</p>
-        <a className="text-link" target="_blank" rel="noopener noreferrer"
+        {item.coordinates && <a className="text-link" target="_blank" rel="noopener noreferrer"
           href={'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(item.coordinates.join(','))}>
           <MapPin size={17} /> Abrir no Google Maps <ArrowUpRight size={15} />
-        </a>
+        </a>}
       </section>
-      <form className="panel detail" onSubmit={event => {
+      <form className="panel detail" onSubmit={async event => {
         event.preventDefault()
-        setFeedback(onChange(item.id, status) ? 'Status salvo neste dispositivo.' : 'Status alterado nesta sessão. O armazenamento local está indisponível.')
+        if (submitting || !editable || status === item.status) return
+        setSubmitting(true)
+        try {
+          setFeedback(await onChange(item, status))
+          setDraft(null)
+        } catch (error) {
+          setFeedback(error instanceof Error ? error.message : 'Falha ao salvar o status.')
+          setDraft(null)
+        } finally {
+          setSubmitting(false)
+        }
       }}>
         <h2>Atualizar atendimento</h2>
-        <label>Status<select value={status} onChange={event => {
-          const selected = statuses.find(option => option === event.target.value)
-          if (selected) setStatus(selected)
+        <label>Status<select value={status} disabled={!editable || submitting} onChange={event => {
+          const selected = options.find(option => option === event.target.value)
+          if (selected) setDraft({ status: selected, base: item.status })
           setFeedback('')
         }}>
-          {statuses.map(option => <option key={option}>{option}</option>)}
+          {options.map(option => <option key={option}>{option}</option>)}
         </select></label>
-        <button className="button lime" disabled={status === item.status}>Salvar status</button>
+        <button className="button lime" disabled={!editable || submitting || status === item.status}>{submitting ? 'Salvando…' : 'Salvar status'}</button>
         {feedback && <p role="status">{feedback}</p>}
       </form>
     </div>
   </>
 }
 
+function Login({ onLogin, notice }: { onLogin: (token: string) => void; notice: string }) {
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  return <form className="panel detail login-panel" onSubmit={async event => {
+    event.preventDefault()
+    if (busy) return
+    const form = event.currentTarget
+    const data = new FormData(form)
+    setBusy(true)
+    setError('')
+    try {
+      onLogin(await signIn(String(data.get('email')).trim(), String(data.get('senha'))))
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Não foi possível entrar.')
+    } finally {
+      form.reset()
+      setBusy(false)
+    }
+  }}>
+    <h1>Cidade Ativa — Equipe</h1>
+    <p>Entre com sua conta de trabalho do Cidade Ativa.</p>
+    <label>E-mail<input type="email" name="email" autoComplete="username" required /></label>
+    <label>Senha<input type="password" name="senha" autoComplete="current-password" required /></label>
+    <button className="button lime" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
+    {(error || notice) && <p role="status">{error || notice}</p>}
+  </form>
+}
+
 function App() {
   const [route, setRoute] = useState(() => location.hash.slice(1) || '/')
   const [saved, setSaved] = useState(loadStatuses)
+  const [token, setToken] = useState<string | null>(null)
+  const [notice, setNotice] = useState('')
+  const expire = useCallback(() => {
+    setNotice('Sua sessão expirou. Entre novamente.')
+    setToken(null)
+  }, [])
+  const shared = useSharedOccurrences(token, expire)
   useEffect(() => {
     function onNavigate() {
       setRoute(location.hash.slice(1) || '/')
@@ -157,27 +209,33 @@ function App() {
     window.addEventListener('hashchange', onNavigate)
     return () => window.removeEventListener('hashchange', onNavigate)
   }, [])
-  const items = activities.map(item => ({ ...item, status: saved[item.id] ?? item.status }))
-    .sort((a, b) => priorities.indexOf(a.priority) - priorities.indexOf(b.priority))
+  const items = useMemo(() => {
+    const source = onlineMode ? shared.items ?? [] : activities.map(item => ({ ...item, status: saved[item.id] ?? item.status }))
+    return [...source].sort((a, b) => priorities.indexOf(a.priority) - priorities.indexOf(b.priority))
+  }, [saved, shared.items])
   const selected = route.startsWith('/ocorrencia/') ? items.find(item => route === '/ocorrencia/' + item.id) : undefined
 
-  function updateStatus(id: string, status: Status) {
-    const next = { ...saved, [id]: status }
+  async function updateStatus(item: Activity, status: Status) {
+    if (onlineMode) return shared.save(item, status)
+    const next = { ...saved, [item.id]: status }
     setSaved(next)
     try {
       localStorage.setItem(storageKey, JSON.stringify(next))
-      return true
+      return 'Status salvo neste dispositivo.'
     } catch {
-      return false
+      return 'Status alterado nesta sessão. O armazenamento local está indisponível.'
     }
   }
 
+  if (onlineMode && !token) return <main><Login onLogin={setToken} notice={notice} /></main>
+
   let page
-  if (route === '/') page = <Dashboard items={items} />
+  if (onlineMode && !shared.items) page = <p className="panel sync-notice" role="status">{shared.message || 'Consultando demandas…'}</p>
+  else if (route === '/') page = <Dashboard items={items} />
   else if (route === '/atividades') page = <Activities items={items} />
   else if (route === '/mapa') page = <>
     <Suspense fallback={<p role="status">Carregando mapa…</p>}>
-      <OccurrenceMap activities={items} />
+      <OccurrenceMap activities={items} live={onlineMode} />
     </Suspense>
     <section className="panel"><div className="panel-header"><h2>Todas as ocorrências</h2></div><ActivityList items={items} /></section>
   </>
@@ -194,11 +252,17 @@ function App() {
         return <a key={path} href={'#' + path} className={active ? 'active' : undefined}
           aria-current={route === path ? 'page' : undefined}><Icon size={20} />{title}</a>
       })}</nav>
-      <div className="sidebar-footer"><span>CA</span><div>Equipe de campo<small>Ambiente de demonstração</small></div></div>
+      <div className="sidebar-footer"><span>CA</span><div>Equipe de campo<small>{onlineMode ? 'Sistema integrado' : 'Ambiente de demonstração'}</small></div></div>
     </aside>
     <div className="workspace">
-      <header className="topbar"><span>Central de operações</span><span className="demo"><i /> Dados fictícios</span></header>
-      <main>{page}</main>
+      <header className={'topbar' + (onlineMode ? ' topbar-live' : '')}>
+        <span>Central de operações</span>
+        {onlineMode ? <div className="account-controls">
+          <button className="button" type="button" onClick={() => void shared.refresh()}>Atualizar</button>
+          <button className="button" type="button" onClick={() => { setNotice(''); setToken(null) }}>Sair</button>
+        </div> : <span className="demo"><i /> Dados fictícios</span>}
+      </header>
+      <main>{onlineMode && shared.items && shared.message && <p className="panel sync-notice" role="status">{shared.message}</p>}{page}</main>
     </div>
   </div>
 }
