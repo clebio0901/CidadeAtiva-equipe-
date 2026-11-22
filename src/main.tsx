@@ -169,7 +169,7 @@ function App() {
   if (route === '/') page = <Dashboard items={items} />
   else if (route === '/atividades') page = <Activities items={items} />
   else if (route === '/mapa') page = <>
-    <header className="page-header"><h1>Mapa de ocorrências</h1><p>Selecione um marcador para consultar o atendimento.</p></header>
+    <header className="page-header"><h1>Mapa de ocorrências</h1><p>Sumé-PB · Selecione um marcador para consultar o atendimento.</p></header>
     <section className="panel map-panel"><Suspense fallback={<p role="status">Carregando mapa…</p>}>
       <OccurrenceMap activities={items} />
     </Suspense></section>

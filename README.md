@@ -1,6 +1,6 @@
 # Cidade Ativa — Equipe
 
-Frontend independente de operações urbanas em React, TypeScript e Vite. A demonstração usa ocorrências fictícias em Fortaleza. O painel e a lista refletem as alterações de status salvas no navegador deste dispositivo. O mapa usa Leaflet com OpenStreetMap e precisa de internet para carregar as ruas. Os detalhes incluem um link para o Google Maps.
+Frontend independente de operações urbanas em React, TypeScript e Vite. A demonstração usa ocorrências fictícias e marcadores ilustrativos em Sumé-PB. O painel e a lista refletem as alterações de status salvas no navegador deste dispositivo. O mapa usa Leaflet com OpenStreetMap e precisa de internet para carregar as ruas. Os detalhes incluem um link para o Google Maps.
 
 ## Executar no navegador
 
