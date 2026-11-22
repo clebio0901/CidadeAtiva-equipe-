@@ -169,11 +169,10 @@ function App() {
   if (route === '/') page = <Dashboard items={items} />
   else if (route === '/atividades') page = <Activities items={items} />
   else if (route === '/mapa') page = <>
-    <header className="page-header"><h1>Mapa de ocorrências</h1><p>Sumé-PB · Selecione um marcador para consultar o atendimento.</p></header>
-    <section className="panel map-panel"><Suspense fallback={<p role="status">Carregando mapa…</p>}>
+    <Suspense fallback={<p role="status">Carregando mapa…</p>}>
       <OccurrenceMap activities={items} />
-    </Suspense></section>
-    <section className="panel"><div className="panel-header"><h2>Ocorrências no mapa</h2></div><ActivityList items={items} /></section>
+    </Suspense>
+    <section className="panel"><div className="panel-header"><h2>Todas as ocorrências</h2></div><ActivityList items={items} /></section>
   </>
   else if (selected) page = <Details key={selected.id} item={selected} onChange={updateStatus} />
   else page = <header className="page-header"><h1>Página indisponível</h1><a className="text-link" href="#/">Voltar ao painel</a></header>

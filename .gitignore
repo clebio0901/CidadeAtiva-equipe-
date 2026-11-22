@@ -3,3 +3,6 @@ dist/
 *.local
 
 .
+
+# Local Netlify folder
+.netlify
