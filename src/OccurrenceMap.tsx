@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { LocateFixed, Maximize2, Minimize2 } from 'lucide-react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { categories, priorities, type Activity } from './data'
+import GoogleMap, { hasGoogleMaps } from './GoogleMap'
 
-const center: L.LatLngTuple = [-7.6703, -36.8828]
+const center: [number, number] = [-7.6703, -36.8828]
 const layers = {
   satellite: {
     url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -21,6 +22,10 @@ export default function OccurrenceMap({ activities, compact = false }: { activit
   const Heading = compact ? 'h2' : 'h1'
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
+  const resetGoogle = useRef<(() => void) | null>(null)
+  const [googleUnavailable, setGoogleUnavailable] = useState(false)
+  const useGoogle = hasGoogleMaps && !googleUnavailable
+  const fallBack = useCallback(() => setGoogleUnavailable(true), [])
   const [layer, setLayer] = useState<keyof typeof layers>('satellite')
   const [category, setCategory] = useState('')
   const [expanded, setExpanded] = useState(false)
@@ -30,7 +35,7 @@ export default function OccurrenceMap({ activities, compact = false }: { activit
   useEffect(() => {
     const element = container.current
     if (!element) return
-    const instance = L.map(element, { scrollWheelZoom: false, zoomControl: false }).setView(center, initialZoom)
+    const instance = L.map(element, { scrollWheelZoom: true, zoomControl: false }).setView(center, initialZoom)
     L.control.zoom({ position: 'bottomright', zoomInTitle: 'Aproximar', zoomOutTitle: 'Afastar' }).addTo(instance)
     instance.attributionControl.setPrefix(false)
     map.current = instance
@@ -41,7 +46,7 @@ export default function OccurrenceMap({ activities, compact = false }: { activit
       instance.remove()
       map.current = null
     }
-  }, [initialZoom])
+  }, [initialZoom, useGoogle])
 
   useEffect(() => {
     const instance = map.current
@@ -57,7 +62,7 @@ export default function OccurrenceMap({ activities, compact = false }: { activit
       tiles.off()
       tiles.remove()
     }
-  }, [layer])
+  }, [layer, useGoogle])
 
   useEffect(() => {
     const instance = map.current
@@ -81,7 +86,7 @@ export default function OccurrenceMap({ activities, compact = false }: { activit
       }).bindPopup(popup).addTo(markers)
     }
     return () => { markers.remove() }
-  }, [activities, category])
+  }, [activities, category, useGoogle])
 
   useEffect(() => {
     if (!expanded) return
@@ -104,7 +109,7 @@ export default function OccurrenceMap({ activities, compact = false }: { activit
           {Object.keys(categories).map(name => <option key={name}>{name}</option>)}
         </select>
         <button type="button" title="Centralizar em Sumé" aria-label="Centralizar em Sumé"
-          onClick={() => map.current?.setView(center, initialZoom)}><LocateFixed size={19} /></button>
+          onClick={() => useGoogle ? resetGoogle.current?.() : map.current?.setView(center, initialZoom)}><LocateFixed size={19} /></button>
         <button type="button" title={expanded ? 'Reduzir mapa' : 'Ampliar mapa'}
           aria-label={expanded ? 'Reduzir mapa' : 'Ampliar mapa'} aria-expanded={expanded}
           onClick={() => setExpanded(value => !value)}>
@@ -113,7 +118,10 @@ export default function OccurrenceMap({ activities, compact = false }: { activit
       </div>
     </div>
     <div className="map-frame">
-      <div className="map" ref={container} aria-label="Mapa interativo de Sumé-PB" />
+      {useGoogle
+        ? <GoogleMap activities={activities} category={category} center={center} zoom={initialZoom}
+          layer={layer} reset={resetGoogle} onUnavailable={fallBack} />
+        : <div className="map" ref={container} aria-label="Mapa interativo de Sumé-PB" />}
       <select className="map-layer" aria-label="Visualização do mapa" value={layer} onChange={event => {
         setFailedLayer(null)
         setLayer(event.target.value === 'streets' ? 'streets' : 'satellite')
@@ -125,6 +133,7 @@ export default function OccurrenceMap({ activities, compact = false }: { activit
     <div className="map-legend" aria-label="Prioridade dos marcadores">
       {priorities.map((name, index) => <span key={name}><i className={'map-pin-' + index} />{name}</span>)}
     </div>
+    {googleUnavailable && <p role="status">Google Maps indisponível. Exibindo o mapa alternativo.</p>}
     {failedLayer === layer && <p role="status">A camada {layer === 'satellite' ? 'Satélite' : 'Ruas'} está indisponível. Experimente a outra visualização.</p>}
   </section>
 }

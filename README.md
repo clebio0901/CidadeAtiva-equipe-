@@ -28,3 +28,13 @@ Execute `npx cap add android` na primeira configuração. Nas próximas alteraç
 
 [Configuração do ambiente Capacitor](https://capacitorjs.com/docs/getting-started/environment-setup)
 
+
+## Google Maps
+
+Para usar o Google Maps como fonte, habilite a Maps JavaScript API em um projeto do Google Cloud com faturamento ativo. Crie uma chave para navegador restrita à Maps JavaScript API e aos endereços do frontend. Para desenvolvimento local, inclua a origem local autorizada. Para produção, inclua o domínio do Netlify autorizado.
+
+Defina `VITE_GOOGLE_MAPS_API_KEY` em `.env.local` para compilar na máquina, ou nas variáveis do Netlify se ele executar o build. Gere novamente `dist` antes de publicar. Em um deploy manual, a variável precisa estar disponível na máquina que executa `npm run build`. A chave de navegador fica visível no frontend compilado, por isso deve ser específica para esse uso e ter restrições próprias.
+
+Sem a chave, o mapa usa Esri e OpenStreetMap. Ambos os modos permitem zoom via rolagem do mouse sobre o mapa, gestos de toque e os botões de zoom.
+
+[Configuração da Maps JavaScript API](https://developers.google.com/maps/documentation/javascript/get-api-key)

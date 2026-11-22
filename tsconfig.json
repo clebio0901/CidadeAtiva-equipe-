@@ -13,7 +13,7 @@
     "skipLibCheck": true,
     "noEmit": true,
     "types": [
-      "vite/client"
+      "vite/client", "google.maps"
     ]
   },
   "include": [
