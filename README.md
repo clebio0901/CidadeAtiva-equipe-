@@ -46,3 +46,7 @@ Configure `VITE_CIDADE_ATIVA_API_URL` com a origem HTTPS do mesmo backend do Adm
 Na hospedagem do backend, acrescente o domínio da Equipe em `CORS_ALLOWED_ORIGINS`, preservando os domínios já autorizados. A integração usa o login existente e as permissões de Gestor ou Administrador. O escopo atual inclui as demandas visíveis a essas contas. A API atual não associa um usuário de campo a uma equipe com permissão delimitada.
 
 O frontend consulta `GET /api/ocorrencias` ao entrar, a cada 20 segundos enquanto a janela está visível e pelo botão Atualizar. Para salvar status, o backend precisa ter `PATCH /api/ocorrencias/{id}/status` aplicado e publicado. Essa rota atualiza somente o status, usa o banco existente e detecta mudanças concorrentes de status.
+
+## Cadastro de funcionários
+
+A seção Funcionários fica disponível em produção para Administradores. Ela lista contas com perfil Servidor e cadastra novas pela rota protegida `POST /api/usuarios/funcionarios`. A rota precisa ser publicada no mesmo backend do Administrador. O perfil Servidor identifica o funcionário de campo. O acesso de servidores às demandas operacionais depende de uma etapa de vínculo com a equipe e autorização no backend.

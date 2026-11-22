@@ -1,14 +1,16 @@
 import { StrictMode, Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, CheckCircle2, ChevronRight, ClipboardList, Clock3, LayoutDashboard, MapPin, Map as MapIcon, Radio, TriangleAlert } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, CheckCircle2, ChevronRight, ClipboardList, Clock3, LayoutDashboard, MapPin, Map as MapIcon, Radio, TriangleAlert, Users } from 'lucide-react'
 import { activities, categories, priorities, statuses, type Activity, type Status } from './data'
-import { onlineMode, operationalStatuses, signIn } from './api'
+import { onlineMode, operationalStatuses, signIn, type Session } from './api'
 import { useSharedOccurrences } from './useSharedOccurrences'
+import Employees from './Employees'
 import './styles.css'
 
 const OccurrenceMap = lazy(() => import('./OccurrenceMap'))
 const storageKey = 'cidade-ativa-equipe/status/v1'
 const demoStatuses: Status[] = ['Pendente', 'Em andamento', 'Concluída']
+const employeesLink = { path: '/funcionarios', title: 'Funcionários', icon: Users }
 const navigation = [
   { path: '/', title: 'Visão geral', icon: LayoutDashboard },
   { path: '/atividades', title: 'Atividades', icon: ClipboardList },
@@ -163,7 +165,7 @@ function Details({ item, onChange }: { item: Activity; onChange: (item: Activity
   </>
 }
 
-function Login({ onLogin, notice }: { onLogin: (token: string) => void; notice: string }) {
+function Login({ onLogin, notice }: { onLogin: (session: Session) => void; notice: string }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   return <form className="panel detail login-panel" onSubmit={async event => {
@@ -194,11 +196,14 @@ function Login({ onLogin, notice }: { onLogin: (token: string) => void; notice: 
 function App() {
   const [route, setRoute] = useState(() => location.hash.slice(1) || '/')
   const [saved, setSaved] = useState(loadStatuses)
-  const [token, setToken] = useState<string | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
+  const token = session?.token ?? null
+  const showEmployees = !onlineMode || session?.role === 'ADMINISTRADOR'
+  const links = showEmployees ? [...navigation, employeesLink] : navigation
   const [notice, setNotice] = useState('')
   const expire = useCallback(() => {
     setNotice('Sua sessão expirou. Entre novamente.')
-    setToken(null)
+    setSession(null)
   }, [])
   const shared = useSharedOccurrences(token, expire)
   useEffect(() => {
@@ -227,10 +232,11 @@ function App() {
     }
   }
 
-  if (onlineMode && !token) return <main><Login onLogin={setToken} notice={notice} /></main>
+  if (onlineMode && !token) return <main><Login onLogin={setSession} notice={notice} /></main>
 
   let page
-  if (onlineMode && !shared.items) page = <p className="panel sync-notice" role="status">{shared.message || 'Consultando demandas…'}</p>
+  if (route === '/funcionarios' && showEmployees) page = <Employees token={token} onExpired={expire} />
+  else if (onlineMode && !shared.items) page = <p className="panel sync-notice" role="status">{shared.message || 'Consultando demandas…'}</p>
   else if (route === '/') page = <Dashboard items={items} />
   else if (route === '/atividades') page = <Activities items={items} />
   else if (route === '/mapa') page = <>
@@ -247,7 +253,7 @@ function App() {
       <a className="brand" href="#/"><span className="brand-icon"><MapPin size={23} /></span>
         <span>Cidade Ativa<small>Equipe de campo</small></span>
       </a>
-      <nav aria-label="Navegação principal">{navigation.map(({ path, title, icon: Icon }) => {
+      <nav aria-label="Navegação principal" className={showEmployees ? 'nav-four' : undefined}>{links.map(({ path, title, icon: Icon }) => {
         const active = route === path || (path === '/atividades' && !!selected)
         return <a key={path} href={'#' + path} className={active ? 'active' : undefined}
           aria-current={route === path ? 'page' : undefined}><Icon size={20} />{title}</a>
@@ -259,7 +265,7 @@ function App() {
         <span>Central de operações</span>
         {onlineMode ? <div className="account-controls">
           <button className="button" type="button" onClick={() => void shared.refresh()}>Atualizar</button>
-          <button className="button" type="button" onClick={() => { setNotice(''); setToken(null) }}>Sair</button>
+          <button className="button" type="button" onClick={() => { setNotice(''); setSession(null) }}>Sair</button>
         </div> : <span className="demo"><i /> Dados fictícios</span>}
       </header>
       <main>{onlineMode && shared.items && shared.message && <p className="panel sync-notice" role="status">{shared.message}</p>}{page}</main>

@@ -27,6 +27,9 @@ type ApiOccurrence = {
   longitude: number | null
 }
 
+export type Session = { token: string; role: 'ADMINISTRADOR' | 'GESTOR' }
+export type Employee = { id: number; nome: string; email: string; tipo: string; ativo: boolean }
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message) }
 }
@@ -82,14 +85,32 @@ function toActivity(row: ApiOccurrence): Activity {
   }
 }
 
-export async function signIn(email: string, senha: string) {
+export async function signIn(email: string, senha: string): Promise<Session> {
   const session = await request<{ token: string; tipo: string }>('/api/auth/login', {
     method: 'POST', body: JSON.stringify({ email, senha }),
   })
-  if (!['GESTOR', 'ADMINISTRADOR'].includes(session.tipo)) {
+  if (session.tipo !== 'GESTOR' && session.tipo !== 'ADMINISTRADOR') {
     throw new Error('Use uma conta Gestor ou Administrador autorizada para demandas operacionais.')
   }
-  return session.token
+  return { token: session.token, role: session.tipo }
+}
+
+const employeeEndpoint = '/api/usuarios/funcionarios'
+
+export async function fetchEmployees(token: string, signal: AbortSignal) {
+  const rows = await request<Employee[]>('/api/usuarios', { signal }, token)
+  return rows.filter(row => row.tipo === 'SERVIDOR').sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+}
+
+export async function registerEmployee(token: string, employee: { nome: string; email: string; telefone: string; senha: string }) {
+  try {
+    return await request<Employee>(employeeEndpoint, { method: 'POST', body: JSON.stringify(employee) }, token)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 409) {
+      throw new ApiError(409, 'Já existe uma conta com esse e-mail.')
+    }
+    throw error
+  }
 }
 
 export async function fetchOccurrences(token: string, signal: AbortSignal) {
