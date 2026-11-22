@@ -5,7 +5,6 @@ import 'leaflet/dist/leaflet.css'
 import { categories, priorities, type Activity } from './data'
 
 const center: L.LatLngTuple = [-7.6703, -36.8828]
-const initialZoom = 15
 const layers = {
   satellite: {
     url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -17,7 +16,9 @@ const layers = {
   },
 } as const
 
-export default function OccurrenceMap({ activities }: { activities: Activity[] }) {
+export default function OccurrenceMap({ activities, compact = false }: { activities: Activity[]; compact?: boolean }) {
+  const initialZoom = compact ? 14 : 15
+  const Heading = compact ? 'h2' : 'h1'
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const [layer, setLayer] = useState<keyof typeof layers>('satellite')
@@ -40,7 +41,7 @@ export default function OccurrenceMap({ activities }: { activities: Activity[] }
       instance.remove()
       map.current = null
     }
-  }, [])
+  }, [initialZoom])
 
   useEffect(() => {
     const instance = map.current
@@ -91,10 +92,10 @@ export default function OccurrenceMap({ activities }: { activities: Activity[] }
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [expanded])
 
-  return <section aria-labelledby="map-title" className={'panel map-panel' + (expanded ? ' map-panel-expanded' : '')}>
+  return <section aria-labelledby="map-title" className={'panel map-panel' + (compact ? ' map-panel-compact' : '') + (expanded ? ' map-panel-expanded' : '')}>
     <div className="map-toolbar">
       <div>
-        <h1 id="map-title">Mapa de ocorrências · Sumé-PB</h1>
+        <Heading className="map-title" id="map-title">Mapa de ocorrências · Sumé-PB</Heading>
         <p aria-live="polite">{count} {count === 1 ? 'ponto fictício' : 'pontos fictícios'}</p>
       </div>
       <div className="map-actions">

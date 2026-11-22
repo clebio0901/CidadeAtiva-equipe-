@@ -56,7 +56,7 @@ function Dashboard({ items }: { items: Activity[] }) {
     { label: 'Concluídas', value: items.filter(item => item.status === 'Concluída').length, icon: CheckCircle2, color: 'green' },
   ]
   return <>
-    <section className="hero">
+    <section className="hero dashboard-intro">
       <div className="hero-content">
         <p className="eyebrow"><Radio size={16} /> Operações urbanas</p>
         <h1>Painel da equipe</h1>
@@ -71,11 +71,18 @@ function Dashboard({ items }: { items: Activity[] }) {
         <div><strong>{value}</strong><span>{label}</span></div>
       </article>)}
     </section>
-    <section className="panel">
-      <div className="panel-header"><div><h2>Prioridades em campo</h2><p>Ocorrências abertas por ordem de prioridade</p></div>
-        <a className="text-link" href="#/atividades">Ver todas <ArrowUpRight size={17} /></a></div>
-      <ActivityList items={items.filter(item => item.status !== 'Concluída').slice(0, 4)} />
-    </section>
+    <div className="dashboard-map-grid">
+      <Suspense fallback={<p className="panel map-loading" role="status">Carregando mapa…</p>}>
+        <OccurrenceMap activities={items} compact />
+      </Suspense>
+      <section className="panel dashboard-priorities">
+        <div className="panel-header">
+          <div><h2>Prioridades em campo</h2><p>Ocorrências abertas por ordem de prioridade</p></div>
+          <a className="text-link" href="#/atividades">Ver todas <ArrowUpRight size={17} /></a>
+        </div>
+        <ActivityList items={items.filter(item => item.status !== 'Concluída').slice(0, 4)} />
+      </section>
+    </div>
   </>
 }
 
